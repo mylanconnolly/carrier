@@ -43,6 +43,7 @@ config :carrier, Carrier,
 For local development, you can either:
 
 1. Set environment variables:
+
    ```bash
    export SMARTY_AUTH_ID=your_auth_id_here
    export SMARTY_AUTH_TOKEN=your_auth_token_here
@@ -70,8 +71,8 @@ Carrier uses GitHub Actions for continuous integration. The CI pipeline automati
 
 - Runs on every push to the `master` branch and on all pull requests
 - Tests across multiple Elixir and OTP versions using a build matrix:
-  - Elixir: 1.16.x, 1.17.x, 1.18.x
-  - OTP: 26.x, 27.x
+  - Elixir: 1.17, 1.18
+  - OTP: 26, 27
 - Verifies that the codebase compiles successfully
 - Ensures all tests pass
 - Checks code formatting
