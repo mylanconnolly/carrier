@@ -19,7 +19,7 @@ with the Smarty API.
 
 ```elixir
 def deps do
-  [{:carrier, "~> 2.0.0"}]
+  [{:carrier, "~> 2.0"}]
 end
 ```
 
