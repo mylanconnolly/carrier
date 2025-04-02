@@ -1,12 +1,28 @@
 defmodule Carrier do
   @moduledoc """
-  Elixir library for interacting with Smarty's API.
+  Elixir library for interacting with Smarty's API. The main functions in this
+  module are `verify/1` to verify a single address and `verify_many/1` to verify
+  multiple addresses using batch processing.
   """
 
   # Get hostname from config instead of hardcoding it
   @hostname Application.compile_env(:carrier, Carrier)[:hostname] ||
               "https://us-street.api.smarty.com/street-address"
 
+  @spec verify(map()) :: {:ok, map()} | {:error, term()}
+  @doc """
+  Verifies a single address.
+  """
+  def verify(address) do
+    client()
+    |> Req.get(params: Map.merge(auth_params(), standardize_request(address)))
+    |> standardize_response()
+  end
+
+  @spec verify_many([map()]) :: {:ok, [map()]} | {:error, term()}
+  @doc """
+  Verifies multiple addresses in a batch.
+  """
   def verify_many(addresses) do
     %{to_verify: addresses, cached: cached} =
       Enum.reduce(addresses, %{to_verify: [], cached: []}, fn address, acc ->
@@ -19,12 +35,6 @@ defmodule Carrier do
       {:ok, result} -> {:ok, result ++ cached}
       error -> error
     end
-  end
-
-  def verify(address) do
-    client()
-    |> Req.get(params: Map.merge(auth_params(), standardize_request(address)))
-    |> standardize_response()
   end
 
   defp standardize_response(resp, opts \\ [])
@@ -49,6 +59,11 @@ defmodule Carrier do
     %{"auth-id" => auth_id(), "auth-token" => auth_token()}
   end
 
+  @doc """
+  This is the function used to standardize requests. You should not need to use
+  this function directly, as it is called by `verify/1` and `verify_many/1`. It
+  is public for testing purposes.
+  """
   def standardize_request(address) do
     address
     |> Enum.filter(fn {k, _} ->
@@ -62,6 +77,11 @@ defmodule Carrier do
     |> Map.merge(%{"candidates" => 1})
   end
 
+  @doc """
+  This is the function used to standardize responses. You should not need to use
+  this function directly, as it is called by `verify/1` and `verify_many/1`. It
+  is public for testing purposes.
+  """
   def standardize_result(result) do
     zip =
       case result["components"] do
