@@ -1,15 +1,15 @@
 # Carrier
 
 This is an unofficial Elixir client for the excellent
-[SmartyStreets](https://smartystreets.com/) address verification service.
+[Smarty](https://smarty.com/) address verification service.
 
 It's fairly bare-bones because all we need it for is verifying and standardizing
 addresses, however it might get beefed up in the future. There's a ton of data
-provided by SmartyStreets in addition to the verification process, and some of
+provided by Smarty in addition to the verification process, and some of
 it might be pretty useful to have (such as geo-coding, timezone data, etc.).
 
 It is essentially just a `GenServer` that handles the minutiae of communicating
-with the SmartyStreets API.
+with the Smarty API.
 
 ## Installation
 
@@ -17,64 +17,51 @@ with the SmartyStreets API.
 
 ```elixir
 def deps do
-  [{:carrier, "~> 1.0.0"}]
+  [{:carrier, "~> 2.0.0"}]
 end
 ```
 
-### Add configuration to `config.exs`:
+### Configuration
+
+Carrier supports environment-specific configuration for working with the Smarty API. You can configure it in different ways depending on your environment:
+
+#### Production
+
+In production, use environment variables for sensitive data:
 
 ```elixir
-config :carrier,
-  smarty_streets_id: "your auth-id here",
-  smarty_streets_token: "your auth-token here"
+# config/prod.exs
+config :carrier, Carrier,
+  auth_id: System.get_env("SMARTY_AUTH_ID"),
+  auth_token: System.get_env("SMARTY_AUTH_TOKEN")
+```
+
+#### Development
+
+For local development, you can either:
+
+1. Set environment variables:
+   ```bash
+   export SMARTY_AUTH_ID=your_auth_id_here
+   export SMARTY_AUTH_TOKEN=your_auth_token_here
+   ```
+
+2. Or create a `.env` file based on the provided `.env.example` and use a library like [Dotenv](https://github.com/avdi/dotenv_elixir) to load it.
+
+#### Testing and CI
+
+For testing and CI environments, you can:
+
+1. Set environment variables in your CI platform
+2. Use the default test values provided in `config/test.exs`
+
+```elixir
+# config/test.exs
+config :carrier, Carrier,
+  auth_id: System.get_env("SMARTY_AUTH_ID") || "test_auth_id",
+  auth_token: System.get_env("SMARTY_AUTH_TOKEN") || "test_auth_token"
 ```
 
 ## Usage
 
-### Validating one address
-
-A pretty well-formed and complete address to query:
-
-```elixir
-iex> Carrier.verify_one {"1 Infinite Loop", "Cupertino", "CA", "95014"}
-{:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
-```
-
-Note that the addresses are also standardized (to follow USPS guidelines):
-
-```elixir
-iex> Carrier.verify_one {"1 infinite loop", "cupertino", "ca", "95014"}
-{:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
-
-iex> Carrier.verify_one {"1096 Rainer Dr, Suite 1001", "", "", "32714"}
-{:valid, {"1096 Rainer Dr Ste 1001", "Altamonte Springs", "FL", "32714-3855"}}
-```
-
-You can supply empty strings for fields you don't know:
-
-```elixir
-iex> Carrier.verify_one {"1 Infinite Loop", "", "", "95014"}
-{:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
-
-iex> Carrier.verify_one {"1 Infinite Loop", "Cupertino", "", "95014"}
-{:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
-
-iex> Carrier.verify_one {"1 Infinite Loop", "Cupertino", "CA", ""}
-{:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
-```
-
-If an address is invalid, we'll let you know and provide the original back:
-
-```elixir
-iex> Carrier.verify_one {"123 Fake St", "Anytown", "FL", "12345"}
-{:invalid, {"123 Fake St", "Anytown", "FL", "12345"}}
-```
-
-### Validating a list of addresses
-
-```elixir
-iex> Carrier.verify_many [{"1 Infinite Loop", "", "", "95014"},
-...>                      {"1096 Rainer Dr, Suite 1001", "", "", "32714"}]
-[valid: {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"},
- valid: {"1096 Rainer Dr Ste 1001", "Altamonte Springs", "FL", "32714-3855"}]
-```
+TBD

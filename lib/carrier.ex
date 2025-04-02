@@ -1,85 +1,142 @@
 defmodule Carrier do
-  use Application
-
-  alias Carrier.Server
-
-  @doc """
-  Set up the GenServer API. Should be called before usage either implicitly by
-  adding to `application` in `mix.exs` or explicitly by calling it directly.
+  @moduledoc """
+  Elixir library for interacting with Smarty's API.
   """
-  def start(_type, _args) do
-    import Supervisor.Spec, warn: false
 
-    children = [worker(Server, [])]
-    opts     = [strategy: :one_for_one, name: Carrier.Supervisor]
+  # Get hostname from config instead of hardcoding it
+  @hostname Application.compile_env(:carrier, Carrier)[:hostname] ||
+              "https://us-street.api.smarty.com/street-address"
 
-    Supervisor.start_link children, opts
+  def verify_many(addresses) do
+    %{to_verify: addresses, cached: cached} =
+      Enum.reduce(addresses, %{to_verify: [], cached: []}, fn address, acc ->
+        Map.put(acc, :to_verify, [address | acc.to_verify])
+      end)
+
+    case client()
+         |> Req.post(params: auth_params(), json: Enum.map(addresses, &standardize_request/1))
+         |> standardize_response(force_list: true) do
+      {:ok, result} -> {:ok, result ++ cached}
+      error -> error
+    end
   end
 
-  @doc """
-  This is the public method for validating one address. The only parameter is a
-  four-tuple containing the following fields:
+  def verify(address) do
+    client()
+    |> Req.get(params: Map.merge(auth_params(), standardize_request(address)))
+    |> standardize_response()
+  end
 
-  1. Street address (including suite, apt., etc.)
-  2. City
-  3. State
-  4. ZIP Code
+  defp standardize_response(resp, opts \\ [])
 
-  Results are in the form of a two-tuple. Valid addresses are returned like
-  `{:valid, validated_address}` and invalid ones are returned like
-  `{:invalid, original_address}`.
+  defp standardize_response({:ok, %{status: 200, body: body}}, opts) when is_list(body) do
+    force_list = Keyword.get(opts, :force_list)
 
-  ## Examples
+    if force_list do
+      {:ok, Enum.map(body, &standardize_result/1)}
+    else
+      case body do
+        [] -> {:error, :no_results}
+        [res] -> {:ok, standardize_result(res)}
+        _ -> {:ok, Enum.map(body, &standardize_result/1)}
+      end
+    end
+  end
 
-  A pretty well-formed and complete address to query:
+  defp standardize_response(resp, _opts), do: resp
 
-      iex> Carrier.verify_one {"1 Infinite Loop", "Cupertino", "CA", "95014"}
-      {:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
+  defp auth_params do
+    %{"auth-id" => auth_id(), "auth-token" => auth_token()}
+  end
 
-  Note that the addresses are also standardized (to follow USPS guidelines):
+  def standardize_request(address) do
+    address
+    |> Enum.filter(fn {k, _} ->
+      k in [:input_id, :street, :city, :state, :zip, "street", "city", "state", "zip", "input_id"]
+    end)
+    |> Enum.map(fn
+      {k, v} when is_atom(k) -> {Atom.to_string(k), v}
+      {k, v} -> {k, v}
+    end)
+    |> Enum.into(%{})
+    |> Map.merge(%{"candidates" => 1})
+  end
 
-      iex> Carrier.verify_one {"1 infinite loop", "cupertino", "ca", "95014"}
-      {:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
+  def standardize_result(result) do
+    zip =
+      case result["components"] do
+        %{"zipcode" => zip, "plus4_code" => plus4} -> "#{zip}-#{plus4}"
+        %{"zipcode" => zip} -> zip
+      end
 
-      iex> Carrier.verify_one {"1096 Rainer Dr, Suite 1001", "", "", "32714"}
-      {:valid, {"1096 Rainer Dr Ste 1001", "Altamonte Springs", "FL", "32714-3855"}}
+    meta =
+      case result do
+        %{"input_id" => id} -> %{"input_id" => id}
+        _ -> %{}
+      end
 
-  You can supply empty strings for fields you don't know:
+    deliverable =
+      case result["analysis"] do
+        %{"dpv_match_code" => "Y", "dpv_vacant" => "N"} -> "deliverable"
+        %{"dpv_match_code" => "Y", "dpv_vacant" => "Y"} -> "vacant"
+        %{"dpv_match_code" => "D"} -> "incomplete"
+        _ -> "undeliverable"
+      end
 
-      iex> Carrier.verify_one {"1 Infinite Loop", "", "", "95014"}
-      {:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
+    notes =
+      case result["analysis"] do
+        %{"dpv_footnotes" => footnotes} ->
+          footnotes
+          |> String.codepoints()
+          |> Enum.chunk_every(2)
+          |> Enum.map(&Enum.join/1)
+          |> Enum.map(fn
+            "AA" -> "valid"
+            "A1" -> "invalid"
+            "BB" -> "valid"
+            "CC" -> "unknown_secondary"
+            "M1" -> "missing_primary_number"
+            "M3" -> "invalid_primary_number"
+            "N1" -> "missing_secondary"
+            "P1" -> "missing_po"
+            "P3" -> "invalid_po"
+            "RR" -> "valid"
+            _note -> nil
+          end)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.uniq()
 
-      iex> Carrier.verify_one {"1 Infinite Loop", "Cupertino", "", "95014"}
-      {:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
+        _ ->
+          []
+      end
 
-      iex> Carrier.verify_one {"1 Infinite Loop", "Cupertino", "CA", ""}
-      {:valid, {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"}}
+    parsed_result = %{
+      "street" => result["delivery_line_1"],
+      "city" => result["components"]["city_name"],
+      "state" => result["components"]["state_abbreviation"],
+      "zip" => zip,
+      "verified" => String.length(zip) == 10 && deliverable == "deliverable",
+      "meta" => %{
+        "latitude" => result["metadata"]["latitude"],
+        "longitude" => result["metadata"]["longitude"],
+        "county" => result["metadata"]["county_name"],
+        "deliverable" => deliverable,
+        "notes" => notes
+      }
+    }
 
-  If an address is invalid, we'll let you know and provide the original back:
+    Map.merge(meta, parsed_result)
+  end
 
-      iex> Carrier.verify_one {"123 Fake St", "Anytown", "FL", "12345"}
-      {:invalid, {"123 Fake St", "Anytown", "FL", "12345"}}
+  defp client do
+    Req.new(base_url: @hostname, headers: [{"Accept", "application/json"}])
+  end
 
-  Easy!
-  """
-  def verify_one({street, city, state, zip}),
-    do: Server.verify_one({street, city, state, zip})
+  defp auth_id do
+    Application.get_env(:carrier, Carrier)[:auth_id]
+  end
 
-  @doc """
-  This is the public method for validating many addresses. This accepts a list
-  of four-tuples representing addresses. Behavior works identically to the
-  `verify_one/1` method, except results are in a list.
-
-  Please see `verify_one/1` for more information.
-
-  ## Examples
-
-  Validating two addresses:
-
-      iex> Carrier.verify_many [{"1 Infinite Loop", "", "", "95014"},
-      ...>                      {"1096 Rainer Dr, Suite 1001", "", "", "32714"}]
-      [valid: {"1 Infinite Loop", "Cupertino", "CA", "95014-2083"},
-       valid: {"1096 Rainer Dr Ste 1001", "Altamonte Springs", "FL", "32714-3855"}]
-  """
-  def verify_many(addresses), do: Server.verify_many(addresses)
+  defp auth_token do
+    Application.get_env(:carrier, Carrier)[:auth_token]
+  end
 end

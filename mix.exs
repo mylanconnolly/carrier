@@ -1,22 +1,22 @@
 defmodule Carrier.Mixfile do
   use Mix.Project
 
-  @version "1.0.5"
+  @version "2.0.0"
 
   def project do
     [
       app: :carrier,
-     version: @version,
-     elixir: "~> 1.4",
-     build_embedded: Mix.env == :prod,
-     start_permanent: Mix.env == :prod,
-     maintainers: ["Mylan Connolly"],
-     description: "Elixir library for interacting with SmartyStreets",
-     source_url: "https://github.com/mylanconnolly/carrier",
-     package: package(),
-     docs: docs(),
-     deps: deps()
-   ]
+      version: @version,
+      elixir: "~> 1.18",
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
+      maintainers: ["Mylan Connolly"],
+      description: "Elixir library for interacting with SmartyStreets",
+      source_url: "https://github.com/mylanconnolly/carrier",
+      package: package(),
+      docs: docs(),
+      deps: deps()
+    ]
   end
 
   defp docs do
@@ -29,10 +29,8 @@ defmodule Carrier.Mixfile do
 
   defp deps do
     [
-      {:httpoison, "~> 0.13"},
-      {:poison, "~> 3.1"},
-      {:coverex, "~> 1.4.1", only: :test},
-      {:ex_doc, "~> 0.10",  only: :dev}
+      {:req, "~> 0.5"},
+      {:ex_doc, "~> 0.34", only: :dev}
     ]
   end
 
