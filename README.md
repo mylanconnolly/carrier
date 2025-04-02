@@ -69,7 +69,7 @@ config :carrier, Carrier,
 
 Carrier uses GitHub Actions for continuous integration. The CI pipeline automatically:
 
-- Runs on every push to the `master` branch and on all pull requests
+- Runs on every push to the `main` branch and on all pull requests
 - Tests across multiple Elixir and OTP versions using a build matrix:
   - Elixir: 1.17, 1.18
   - OTP: 26, 27
