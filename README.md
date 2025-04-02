@@ -1,5 +1,7 @@
 # Carrier
 
+![Elixir CI](https://github.com/mylanconnolly/carrier/workflows/Elixir%20CI/badge.svg)
+
 This is an unofficial Elixir client for the excellent
 [Smarty](https://smarty.com/) address verification service.
 
@@ -61,6 +63,20 @@ config :carrier, Carrier,
   auth_id: System.get_env("SMARTY_AUTH_ID") || "test_auth_id",
   auth_token: System.get_env("SMARTY_AUTH_TOKEN") || "test_auth_token"
 ```
+
+### Continuous Integration
+
+Carrier uses GitHub Actions for continuous integration. The CI pipeline automatically:
+
+- Runs on every push to the `master` branch and on all pull requests
+- Tests across multiple Elixir and OTP versions using a build matrix:
+  - Elixir: 1.16.x, 1.17.x, 1.18.x
+  - OTP: 26.x, 27.x
+- Verifies that the codebase compiles successfully
+- Ensures all tests pass
+- Checks code formatting
+
+You can see the CI configuration in `.github/workflows/ci.yml`.
 
 ## Usage
 

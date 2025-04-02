@@ -195,7 +195,8 @@ defmodule CarrierTest do
       assert result["city"] == "Anytown"
       assert result["state"] == "CA"
       assert result["zip"] == "12345"
-      assert result["verified"] == false # Not verified because zip is not full
+      # Not verified because zip is not full
+      assert result["verified"] == false
       assert result["meta"]["deliverable"] == "deliverable"
     end
 
@@ -222,7 +223,8 @@ defmodule CarrierTest do
       result = Carrier.standardize_result(api_result)
 
       assert result["zip"] == "12345-6789"
-      assert result["verified"] == false # Not verified because vacant
+      # Not verified because vacant
+      assert result["verified"] == false
       assert result["meta"]["deliverable"] == "vacant"
     end
 
