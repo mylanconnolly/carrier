@@ -7,11 +7,11 @@ defmodule Carrier.Mixfile do
     [
       app: :carrier,
       version: @version,
-      elixir: "~> 1.18",
+      elixir: "~> 1.17",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       maintainers: ["Mylan Connolly"],
-      description: "Elixir library for interacting with SmartyStreets",
+      description: "Elixir library for interacting with the Smarty API",
       source_url: "https://github.com/mylanconnolly/carrier",
       package: package(),
       docs: docs(),
